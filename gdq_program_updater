@@ -1,0 +1,94 @@
+#!/usr/bin/python3
+
+import requests
+import pytz
+from datetime import datetime, timezone, timedelta
+from html.parser import HTMLParser
+from html.parser import HTMLParser
+from html.entities import name2codepoint
+
+
+class MyHTMLParser(HTMLParser):
+    handleData = False
+    process = False
+    counter = 8
+    resData = []
+    currentData = []
+    def __init__(self):
+        super().__init__()
+        self.handleData = False
+        self.process = False
+        self.currentdata = []
+
+    def handle_starttag(self, tag, attrs):
+        for attr in attrs:
+            if attr[1] == "start-time text-right":
+                if len(self.currentData) > 0:
+                    self.resData.append(self.currentData)
+                    self.currentData = []
+                    self.counter = 8
+
+    def handle_endtag(self, tag):
+        pass
+
+    def handle_data(self, data):
+        if self.counter > 0:
+            dat = data
+            if data != "\\n":
+                self.currentData.append(data)
+                self.counter -= 1
+
+    def handle_comment(self, data):
+        pass
+
+    def handle_entityref(self, name):
+        pass
+
+    def handle_charref(self, name):
+        pass
+
+    def handle_decl(self, data):
+        pass
+
+    def getData(self):
+        return self.resData[1:]
+
+parser = MyHTMLParser()
+
+
+SCHEDULE_URL = 'https://gamesdonequick.com/schedule'
+
+r = requests.get(SCHEDULE_URL);
+
+html_data = str(r.content)
+parser.feed(html_data)
+res_data = parser.getData()
+time_now = datetime.now()
+i = 0
+counter = 3
+prev = True
+
+def cleanElement(el):
+    time = datetime.fromisoformat(el[0][:-1])
+    time = time + timedelta(hours=3)
+    el[0] = ':'.join(str(time).split(' ')[1].split(':')[:-1])
+    if el[1].startswith("BONUS GAME"):
+        el[1] = el[1].split('-')[1].strip()
+    if len(el[1]) > 10:
+        el[1] = el[1][0:10]
+    return el[0] + ' ' + el[1] + '¤' + el[6].strip()
+
+print('###')
+for el in parser.getData():
+    time = datetime.fromisoformat(el[0][:-1])
+    time = time + timedelta(hours=3)
+    if time > time_now:
+        if counter == 0:
+            break
+        if prev:
+            print(cleanElement(res_data[i-1]))
+            prev = False
+        counter -= 1
+        print(cleanElement(el))
+    i += 1
+print('###')
